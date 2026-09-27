@@ -1,49 +1,138 @@
+using System.Threading.Tasks;               // Task: async metotların dönüş tipi
+using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;         // UnityTransport: verinin kablodaki taşıyıcısı
+using Unity.Services.Authentication;        // Unity hesabına (anonim) giriş
+using Unity.Services.Core;                  // Unity Services'ı başlatma
+using Unity.Services.Relay;                 // Relay sunucusu API'si
+using Unity.Services.Relay.Models;          // Allocation gibi veri tipleri
 using UnityEngine;
-using Unity.Netcode; // Import the Unity Netcode namespace for networking functionality
 
-// MonoBehaviour: Bu script'in bir GameObject'e "component" olarak takılabilmesini sağlar.
-// Takılmadıkça hiçbir şey çalışmaz. Sahnede bir objeye eklemen şart
 public class NetworkTestButtons : MonoBehaviour
 {
-    // OnGUI: Unity'nin eski, "kodla anında UI çizme" sistemi (IMGUI).
-    // her karede (hatta karede birkaç kez) otomatik çağrılır ve ekranı sıfırdan çizer.
-    // Neden bunu kullandık? Canvas, buton prefab'ı vb. kurmadan hızlıca test paneli yapmak için
-    // Gerçek menüde bunu atıp Canvas UI kullanacağız. Bu sadece test iskelesi
+    private string joinCodeInput = "";   // Client'ın yazdığı kod
+    private string myJoinCode = "";      // Host'un aldığı ve paylaşacağı kod
+    private string status = "";          // Ekrana basılan durum/hata mesajı
+    private bool busy = false;           // İşlem sürerken butonlara tekrar basılmasın diye kilit
+
+    // Relay'i kullanmak için önce Unity'nin sunucularına "ben kimim" demek gerekiyor.
+    // async/await: İnternet işlemi saniyeler sürebilir. await, oyunu dondurmadan
+    // "cevap gelince buradan devam et" demek. (WinForms'taki async ile aynı mantık.)
+    async Task SignIn()
+    {
+        // Servisler sadece bir kez başlatılır. Zaten başlatıldıysa tekrar yapma.
+        if (UnityServices.State == ServicesInitializationState.Uninitialized)
+        {
+            var options = new InitializationOptions();
+            // Rastgele profil adı: Aynı bilgisayarda iki oyun penceresi açtığında
+            // ikisi de aynı anonim hesapla girip çakışmasın diye. TEST HİLESİ.
+            // Yan etkisi: Her açılışta yeni bir kimlik oluşur. Gerçek sürümde Steam
+            // kimliğine geçince bu satır gidecek.
+            options.SetProfile("p" + Random.Range(0, 1000000));
+            await UnityServices.InitializeAsync(options);
+        }
+
+        // Anonim giriş: Kullanıcı adı/şifre yok, Unity bize geçici bir kimlik verir.
+        // Relay bu kimlik olmadan istek kabul etmez.
+        if (!AuthenticationService.Instance.IsSignedIn)
+            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+    }
+
+    // async void: Normalde kaçınılır (hataları yutulabilir), ama buton tıklaması gibi
+    // "ateşle ve unut" olaylarında kabul edilir. try/catch koyduğumuz için güvendeyiz.
+    async void StartHostRelay()
+    {
+        busy = true;
+        status = "Relay'e baglaniliyor...";
+        try
+        {
+            await SignIn();
+
+            // Allocation: Relay sunucusunda bizim için ayrılan "oda".
+            // 3 = host HARİÇ en fazla bağlanacak kişi sayısı → toplam 4 oyuncu. Oyunun kuralı burada.
+            var allocation = await RelayService.Instance.CreateAllocationAsync(3);
+
+            // NetworkManager'ın taşıyıcısını al ve "doğrudan IP'ye değil, bu Relay odasına bağlan" de.
+            var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            // "dtls" = şifreli bağlantı. Alternatif "udp" şifresizdir. Güvenli olan varsayılan bu.
+            transport.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, "dtls"));
+
+            // Odanın kısa kodunu al (ör. "7XK2PQ"). Arkadaşlarına bunu göndereceksin.
+            myJoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+            Debug.Log("JOIN CODE: " + myJoinCode);
+
+            // Sıralama önemli: Transport Relay'e ayarlandıktan SONRA host başlatılır.
+            // Önce başlatırsan yerel IP'yle başlar, Relay devre dışı kalır.
+            NetworkManager.Singleton.StartHost();
+            status = "";
+        }
+        catch (System.Exception e)
+        {
+            // İnternet yok, servis kapalı, proje Unity Cloud'a bağlı değil vb.
+            status = "Hata: " + e.Message;   // Oyuncuya kısa mesaj
+            Debug.LogException(e);            // Sana Console'da tam detay
+        }
+        busy = false;
+    }
+
+    async void StartClientRelay()
+    {
+        busy = true;
+        status = "Odaya katiliniyor...";
+        try
+        {
+            await SignIn();
+
+            // Host'un odası yerine, verilen kodla var olan odaya katıl.
+            // Trim(): Kopyala-yapıştırda gelen boşlukları temizler. Klasik "kod yanlış" hatasının sebebi.
+            var allocation = await RelayService.Instance.JoinAllocationAsync(joinCodeInput.Trim());
+
+            // Host'takiyle aynı: Taşıyıcıyı Relay'e yönlendir, sonra başlat.
+            var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            transport.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, "dtls"));
+            NetworkManager.Singleton.StartClient();
+            status = "";
+        }
+        catch (System.Exception e)
+        {
+            status = "Hata: " + e.Message;
+            Debug.LogException(e);
+        }
+        busy = false;
+    }
+
     void OnGUI()
     {
-        // Ekranın sol üstünde (x:10, y:10) 250x200 piksellik bir alan açıyoruz.
-        // Aşağıdaki tüm butonlar/yazılar bu kutunun içine alt alta dizilir.
-        GUILayout.BeginArea(new Rect(10, 10, 250, 200));
-
-        // NetworkManager.Singleton: Sahnedeki tek NetworkManager'a her yerden ulaşma kısayolu.
-        // (Singleton = "bundan sadece bir tane var, işte o"). Kısa isimle tutuyoruz ki kod okunaklı olsun.
         var nm = NetworkManager.Singleton;
+        if (nm == null) return;   // Sahne yüklenirken NetworkManager henüz yoksa çökme
 
-        // Henüz ne client ne server'sak = hiçbir oturuma bağlı değiliz.
-        // Bu durumda seçim butonlarını gösteriyoruz
+        GUILayout.BeginArea(new Rect(10, 10, 300, 250));
+
         if (!nm.IsClient && !nm.IsServer)
         {
-            // StartHost: Hem server hem client ol.Oyunu "kuran" oyuncu budur.
-            // Server tarafı otoritedir: ileride şüphe barı gibi kritik değerler burada tutulacak.
-            if (GUILayout.Button("Host Ol")) nm.StartHost();
-
-            // StartClient: Mevcut bir host'a katıl. Sadece client'sın, otorite sende değil.
-            if (GUILayout.Button("Client Ol")) nm.StartClient();
-
+            if (busy)
+            {
+                GUILayout.Label(status);   // Bekleme sırasında sadece durum yazısı
+            }
+            else
+            {
+                if (GUILayout.Button("Host Ol (Relay)")) StartHostRelay();
+                GUILayout.Label("Join code:");
+                // TextField: Her karede eski değeri alır, yazılan yeni değeri döndürür.
+                // Bu yüzden sonucu aynı değişkene geri atıyoruz. OnGUI'de metin kutusu böyle çalışır.
+                joinCodeInput = GUILayout.TextField(joinCodeInput);
+                if (GUILayout.Button("Client Ol (Relay)")) StartClientRelay();
+                if (status != "") GUILayout.Label(status);   // Varsa hata mesajını göster
+            }
         }
         else
         {
-            // Bağlandıysak butonları gizleyip durumu gösteriyoruz.
-            // IsHost true ise hem server hem client'ız; değilse düz client'ız.
             GUILayout.Label(nm.IsHost ? "Mod: HOST" : "Mod: CLIENT");
-
-            // LocalClientId: Netcode'un bu bilgisayara verdiği kimlik numarası.
-            // Host her zaman 0 alır, katılanlar 1, 2, 3... İleride "kim mülakatçı" ayrımını bununla yapacağız.
-            GUILayout.Label("ID Numarası: " + nm.LocalClientId);
+            GUILayout.Label("ID: " + nm.LocalClientId);
+            // Kodu Label yerine TextField'da gösteriyoruz: seçip kopyalanabilsin diye.
+            // Dönüş değerini kullanmadığımız için kullanıcı değiştirse bile bir şey olmaz.
+            if (nm.IsHost) GUILayout.TextField(myJoinCode);
         }
-        // BeginArea ile açtığımız alanı kapatıyoruz. Açıp kapatmazsan Unity hata fırlatır.
+
         GUILayout.EndArea();
-
     }
-
 }
