@@ -10,6 +10,7 @@ public class PlayerInteraction : NetworkBehaviour
     private LaptopSeat laptop;
     private PlayerMovement movement;
     private CharacterController cc;
+    private CameraController cam;   // yerel kamera
 
     // "Koltukta oturan benim mi?" Ayrı bir bool tutmuyoruz, her seferinde
     // sunucunun değerinden hesaplıyoruz. Gerçeğin tek kaynağı sunucu.
@@ -24,6 +25,7 @@ public class PlayerInteraction : NetworkBehaviour
         laptop = FindFirstObjectByType<LaptopSeat>();
         movement = GetComponent<PlayerMovement>();
         cc = GetComponent<CharacterController>();
+        cam = FindFirstObjectByType<CameraController>();   //bu bilgisayardaki kamera
 
         // "Koltukta oturan değişirse bana haber ver"
         laptop.SeatedClientId.OnValueChanged += OnSeatChanged;
@@ -70,6 +72,7 @@ public class PlayerInteraction : NetworkBehaviour
             movement.enabled = false;   // PlayerMovement'ın Update'i artık çalışmaz
             cc.enabled = false;         // CC açıkken ışınlama geri sıçrar (1b'deki tuzak)
             transform.position = laptop.SeatPoint.position;
+            cam.SetLaptopFocus(true);
         }
         else if (oldId == OwnerClientId && !movement.enabled)
         {
@@ -91,5 +94,6 @@ public class PlayerInteraction : NetworkBehaviour
         transform.position = laptop.SeatPoint.position + away.normalized * 0.5f;
         cc.enabled = true;
         movement.enabled = true;
+        cam.SetLaptopFocus(false);   // genel bakışa geri dön
     }
 }
