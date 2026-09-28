@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: -4856045952044648891}
   - component: {fileID: -6872132889844538376}
   - component: {fileID: -6471888298493430572}
+  - component: {fileID: 842268285823978394}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -227,3 +228,17 @@ MonoBehaviour:
     m_InternalValue: 0
   mulakatciMaterial: {fileID: 2100000, guid: 4b50ad95ee97c854993ba7b5b07b7996, type: 2}
   evArkadasiMaterial: {fileID: 2100000, guid: 85a724a309318494f8a398a6d43fca51, type: 2}
+--- !u!114 &842268285823978394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6797803037284784851}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d0ccab9fd9888b4bade5d507ed435e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerInteraction
+  ShowTopMostFoldoutHeaderGroup: 1
+  interactDistance: 1.5

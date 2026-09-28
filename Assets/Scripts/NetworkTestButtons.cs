@@ -6,6 +6,7 @@ using Unity.Services.Core;                  // Unity Services'ı başlatma
 using Unity.Services.Relay;                 // Relay sunucusu API'si
 using Unity.Services.Relay.Models;          // Allocation gibi veri tipleri
 using UnityEngine;
+using System.Text.RegularExpressions;   // Regex: metnin bir kurala uyup uymadığını kontrol eder
 
 public class NetworkTestButtons : MonoBehaviour
 {
@@ -76,6 +77,17 @@ public class NetworkTestButtons : MonoBehaviour
 
     async void StartClientRelay()
     {
+        // YENİ: Biçim kontrolü. Açıkça yanlış bir kodu Relay'e hiç göndermiyoruz.
+        // Asıl kontrolü yine Relay yapar; bu sadece internete çıkmadan hızlı uyarı.
+        // Trim(): Kopyala-yapıştırda gelen boşlukları temizler.
+        string code = joinCodeInput.Trim();
+        // Relay'in kendi hata mesajında verdiği kural: izin verilen harfler, 6-12 uzunluk.
+        if (!Regex.IsMatch(code, "^[6789BCDFGHJKLMNPQRTWbcdfghjklmnpqrtw]{6,12}$"))
+        {
+            status = "Gecersiz kod. Host ekranindaki kodu aynen yapistir.";
+            return;
+        }
+
         busy = true;
         status = "Odaya katiliniyor...";
         try
@@ -83,8 +95,8 @@ public class NetworkTestButtons : MonoBehaviour
             await SignIn();
 
             // Host'un odası yerine, verilen kodla var olan odaya katıl.
-            // Trim(): Kopyala-yapıştırda gelen boşlukları temizler. Klasik "kod yanlış" hatasının sebebi.
-            var allocation = await RelayService.Instance.JoinAllocationAsync(joinCodeInput.Trim());
+            // YENİ: joinCodeInput.Trim() yerine yukarıda temizlediğimiz "code" kullanılıyor.
+            var allocation = await RelayService.Instance.JoinAllocationAsync(code);
 
             // Host'takiyle aynı: Taşıyıcıyı Relay'e yönlendir, sonra başlat.
             var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
@@ -120,6 +132,12 @@ public class NetworkTestButtons : MonoBehaviour
                 // TextField: Her karede eski değeri alır, yazılan yeni değeri döndürür.
                 // Bu yüzden sonucu aynı değişkene geri atıyoruz. OnGUI'de metin kutusu böyle çalışır.
                 joinCodeInput = GUILayout.TextField(joinCodeInput);
+                if (GUILayout.Button("Temizle"))
+                {
+                    GUIUtility.keyboardControl = 0;   // Odağı metin kutusundan al, yoksa Unity eski metni tutar
+                    joinCodeInput = "";               // Artık silme görünür hale gelir
+                    status = "";                      // Eski hata mesajını da temizle
+                }
                 if (GUILayout.Button("Client Ol (Relay)")) StartClientRelay();
                 if (status != "") GUILayout.Label(status);   // Varsa hata mesajını göster
             }
