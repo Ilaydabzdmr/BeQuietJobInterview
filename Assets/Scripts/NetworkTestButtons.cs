@@ -61,7 +61,7 @@ public class NetworkTestButtons : MonoBehaviour
             Debug.Log("JOIN CODE: " + myJoinCode);
 
             // Sıralama önemli: Transport Relay'e ayarlandıktan SONRA host başlatılır.
-            // Önce başlatırsan yerel IP'yle başlar, Relay devre dışı kalır.
+            // Önce başlatırsan "SetRelayServerData çağrılmadı" hatası alırsın (dün yaşadık).
             NetworkManager.Singleton.StartHost();
             status = "";
         }
@@ -131,6 +131,12 @@ public class NetworkTestButtons : MonoBehaviour
             // Kodu Label yerine TextField'da gösteriyoruz: seçip kopyalanabilsin diye.
             // Dönüş değerini kullanmadığımız için kullanıcı değiştirse bile bir şey olmaz.
             if (nm.IsHost) GUILayout.TextField(myJoinCode);
+            var player = nm.SpawnManager?.GetLocalPlayerObject();
+            if (player != null)
+            {
+                var role = player.GetComponent<PlayerRole>().CurrentRole.Value;
+                GUILayout.Label("Rolun: " + (role == Role.Mulakatci ? "MULAKATCI" : "Ev arkadasi"));
+            }
         }
 
         GUILayout.EndArea();

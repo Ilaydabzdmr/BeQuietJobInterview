@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: -1574719428731453740}
   - component: {fileID: -4856045952044648891}
   - component: {fileID: -6872132889844538376}
+  - component: {fileID: -6471888298493430572}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -206,3 +207,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   ShowTopMostFoldoutHeaderGroup: 1
   moveSpeed: 4
+--- !u!114 &-6471888298493430572
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6797803037284784851}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2e2bbedd38f26e4b9085f7742b7ba9b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerRole
+  ShowTopMostFoldoutHeaderGroup: 1
+  CurrentRole:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
+  mulakatciMaterial: {fileID: 2100000, guid: 4b50ad95ee97c854993ba7b5b07b7996, type: 2}
+  evArkadasiMaterial: {fileID: 2100000, guid: 85a724a309318494f8a398a6d43fca51, type: 2}
