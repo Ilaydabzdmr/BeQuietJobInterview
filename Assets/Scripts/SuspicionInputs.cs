@@ -10,6 +10,9 @@ public class SuspicionInputs : NetworkBehaviour
     [SerializeField] private float wrongPersonPerSecond = 1.5f;    // Koltukta ev arkadaşı
     [SerializeField] private float noEyeContactPerSecond = 0.12f;  // Ekrana bakmıyor (~7/dk)
 
+    // Her aktif kaos için temel artış. Plan: "saniyede +0.5, kaos sayısıyla çarpanlı"
+    [SerializeField] private float chaosPerSecond = 0.5f;
+
     private LaptopSeat laptop;
 
     public override void OnNetworkSpawn()
@@ -25,7 +28,13 @@ public class SuspicionInputs : NetworkBehaviour
         var meter = SuspicionMeter.Instance;
         if (meter == null) return;
 
-        float rate = GetCurrentRate();
+        // Koltuk ve göz kuralları: en kötüsü geçerli.
+        float rate = GetSeatRate();
+
+        // Kaos kuralı ÜSTÜNE eklenir (farklı kategori).
+        // Her aktif kaos 0.5 × aktif kaos sayısı → 1:0.5, 2:2.0, 3:4.5
+        int active = ChaosEvent.ActiveCount();
+        rate += chaosPerSecond * active * active;
 
         // rate saniye başına. deltaTime ile çarparak bu karenin payını buluruz.
         // (1b'deki hareket hızıyla aynı mantık: FPS'ten bağımsız.)
@@ -35,7 +44,7 @@ public class SuspicionInputs : NetworkBehaviour
 
     // Şu anki duruma göre saniye başına artış. Kurallar toplanmaz,
     // yukarıdan aşağıya ilk uyan (en kötüsü) geçerli olur.
-    private float GetCurrentRate()
+    private float GetSeatRate()
     {
         ulong seatedId = laptop.SeatedClientId.Value;
 

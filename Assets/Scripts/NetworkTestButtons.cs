@@ -157,7 +157,8 @@ public class NetworkTestButtons : MonoBehaviour
             }
             if (SuspicionMeter.Instance != null && SuspicionMeter.Instance.IsSpawned)
                 GUILayout.Label("Suphe (debug): " + SuspicionMeter.Instance.Suspicion.Value.ToString("0.0")
-                    + " | Asama: " + SuspicionMeter.Instance.Stage.Value);
+                    + " | Asama: " + SuspicionMeter.Instance.Stage.Value
+                    + " | Aktif kaos: " + ChaosEvent.ActiveCount());
 
         }
 
