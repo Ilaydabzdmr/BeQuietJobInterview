@@ -2,6 +2,9 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+//Görüşmenin aşamaları. Sayısal sırası önemli (büyük = daha kötü).
+public enum SuspicionStage { Sakin = 0, Suphelendi = 1, Uyardi = 2, Bitti = 3 }
+
 // Oyunun "can" sistemi. Değer SUNUCUDA tutulur, herkes okur.
 public class SuspicionMeter : NetworkBehaviour
 {
@@ -14,6 +17,12 @@ public class SuspicionMeter : NetworkBehaviour
     // Şüphe değeri (0-100). Sunucu yazar, herkes okur.
     public NetworkVariable<float> Suspicion = new NetworkVariable<float>(
         0f,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+
+    // Şu anki aşama. Sunucu hesaplar ve yazar, herkes okur.
+    public NetworkVariable<SuspicionStage> Stage = new NetworkVariable<SuspicionStage>(
+        SuspicionStage.Sakin,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
 
@@ -36,8 +45,32 @@ public class SuspicionMeter : NetworkBehaviour
             return;
         }
 
+        // Görüşme bittiyse bar kilitli. Artık hiçbir şey değiştiremez.
+        if (Stage.Value == SuspicionStage.Bitti) return;
+
         // Clamp: 0'ın altına ya da 100'ün üstüne çıkmasın.
         Suspicion.Value = Mathf.Clamp(Suspicion.Value + amount, 0f, Max);
+
+        // Değer her değiştiğinde aşamayı yeniden hesapla.
+        // Aynı değer tekrar yazılırsa NGO bunu değişiklik saymaz, ağa boşuna gönderilmez.
+        Stage.Value = CalculateStage(Suspicion.Value);
+    }
+
+    // Değerden aşamaya çeviri. Eşikler tek yerde, ayarlaması kolay.
+    private SuspicionStage CalculateStage(float value)
+    {
+        if (value >= 100f) return SuspicionStage.Bitti;
+        if (value >= 75f) return SuspicionStage.Uyardi;
+        if (value >= 50f) return SuspicionStage.Suphelendi;
+        return SuspicionStage.Sakin;
+    }
+
+    // Barı sıfırla. Şimdilik test için, Görev 8'de tur başında çağrılacak.
+    public void ResetMeter()
+    {
+        if (!IsServer) return;
+        Suspicion.Value = 0f;
+        Stage.Value = SuspicionStage.Sakin;
     }
 
     // DEBUG: Test tuşları. Görev 3c'de gerçek girdiler gelince silinecek.
@@ -50,5 +83,6 @@ public class SuspicionMeter : NetworkBehaviour
 
         if (kb.kKey.wasPressedThisFrame) AddSuspicion(10f);    // K: +10
         if (kb.lKey.wasPressedThisFrame) AddSuspicion(-10f);   // L: -10
+        if (kb.rKey.wasPressedThisFrame) ResetMeter();         // R: sıfırla
     }
 }

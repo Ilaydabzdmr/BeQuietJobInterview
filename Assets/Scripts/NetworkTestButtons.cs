@@ -155,9 +155,9 @@ public class NetworkTestButtons : MonoBehaviour
                 var role = player.GetComponent<PlayerRole>().CurrentRole.Value;
                 GUILayout.Label("Rolun: " + (role == Role.Mulakatci ? "MULAKATCI" : "Ev arkadasi"));
             }
-            //Şüphe değerini herkese yaz (sadece test için, senkronu görmek için)
             if (SuspicionMeter.Instance != null && SuspicionMeter.Instance.IsSpawned)
-                GUILayout.Label("Suphe (debug): " + SuspicionMeter.Instance.Suspicion.Value.ToString("0"));
+                GUILayout.Label("Suphe (debug): " + SuspicionMeter.Instance.Suspicion.Value.ToString("0")
+                    + " | Asama: " + SuspicionMeter.Instance.Stage.Value);
 
         }
 
