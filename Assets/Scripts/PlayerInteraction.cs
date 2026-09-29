@@ -7,6 +7,15 @@ public class PlayerInteraction : NetworkBehaviour
 {
     [SerializeField] private float interactDistance = 1.5f;
 
+    // "Laptop ekranına bakıyor muyum?" Bunu sadece bu oyuncunun kendi
+    // bilgisayarı bilir (kamera yerel). O yüzden OWNER yazar, herkes okur.
+    public NetworkVariable<bool> LookingAtScreen = new NetworkVariable<bool>(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner);
+
+
+
     private LaptopSeat laptop;
     private PlayerMovement movement;
     private CharacterController cc;
@@ -37,6 +46,14 @@ public class PlayerInteraction : NetworkBehaviour
     void Update()
     {
         if (!IsOwner || laptop == null) return;
+
+        // Her karede "ekrana bakıyor muyum?" bilgisini güncelle.
+        // Sadece değer DEĞİŞTİĞİNDE yazıyoruz. Aynı değeri tekrar yazmak zararsız
+        // olsa da gereksiz; bu kontrol niyetimizi netleştiriyor.
+        bool looking = IsSeated && cam.IsLookingAtScreen;
+        if (LookingAtScreen.Value != looking)
+            LookingAtScreen.Value = looking;
+
         if (!Keyboard.current.eKey.wasPressedThisFrame) return;
 
         if (IsSeated)

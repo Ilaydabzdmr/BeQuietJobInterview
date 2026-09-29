@@ -156,7 +156,7 @@ public class NetworkTestButtons : MonoBehaviour
                 GUILayout.Label("Rolun: " + (role == Role.Mulakatci ? "MULAKATCI" : "Ev arkadasi"));
             }
             if (SuspicionMeter.Instance != null && SuspicionMeter.Instance.IsSpawned)
-                GUILayout.Label("Suphe (debug): " + SuspicionMeter.Instance.Suspicion.Value.ToString("0")
+                GUILayout.Label("Suphe (debug): " + SuspicionMeter.Instance.Suspicion.Value.ToString("0.0")
                     + " | Asama: " + SuspicionMeter.Instance.Stage.Value);
 
         }
