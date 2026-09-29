@@ -10,24 +10,21 @@ public class PlayerInteraction : NetworkBehaviour
     private LaptopSeat laptop;
     private PlayerMovement movement;
     private CharacterController cc;
-    private CameraController cam;   // yerel kamera
+    private CameraController cam;   // Yerel kamera
 
-    // "Koltukta oturan benim mi?" Ayrı bir bool tutmuyoruz, her seferinde
-    // sunucunun değerinden hesaplıyoruz. Gerçeğin tek kaynağı sunucu.
+    // "Koltukta oturan benim mi?" Gerçeğin tek kaynağı sunucudaki değer.
     public bool IsSeated => laptop != null && laptop.SeatedClientId.Value == OwnerClientId;
 
     public override void OnNetworkSpawn()
     {
-        // Bu scriptin işi sadece KENDİ oyuncum için. Başkasının kapsülü çıkar.
+        // Sadece KENDİ oyuncum için çalışır.
         if (!IsOwner) return;
 
-        // Sahnedeki laptopu bir kez bul ve sakla (bu arama yavaş, her karede yapılmaz).
         laptop = FindFirstObjectByType<LaptopSeat>();
         movement = GetComponent<PlayerMovement>();
         cc = GetComponent<CharacterController>();
-        cam = FindFirstObjectByType<CameraController>();   //bu bilgisayardaki kamera
+        cam = FindFirstObjectByType<CameraController>();   // Bu bilgisayardaki kamera
 
-        // "Koltukta oturan değişirse bana haber ver"
         laptop.SeatedClientId.OnValueChanged += OnSeatChanged;
     }
 
@@ -40,60 +37,52 @@ public class PlayerInteraction : NetworkBehaviour
     void Update()
     {
         if (!IsOwner || laptop == null) return;
-
-        // wasPressedThisFrame: Sadece basıldığı karede true.
-        // (isPressed olsaydı basılı tuttukça her kare otur-kalk yapardı.)
         if (!Keyboard.current.eKey.wasPressedThisFrame) return;
 
         if (IsSeated)
         {
-            // Sunucunun cevabı gelene kadar IsSeated hâlâ true görünür.
-            // movement.enabled kontrolü: "Zaten kalktıysam ikinci kez kalkma" demek.
+            // Sunucu cevabı gelene kadar IsSeated hâlâ true görünür.
+            // "Zaten kalktıysam ikinci kez kalkma" kontrolü.
             if (!movement.enabled)
             {
-                StandUpLocally();          // Önce kendi ekranımda hemen kalk (iyimser)
+                StandUpLocally();          // İyimser: önce kendi ekranımda hemen kalk
                 laptop.RequestStandRpc();  // Sonra sunucuya haber ver
             }
         }
         else if (Vector3.Distance(transform.position, laptop.SeatPoint.position) <= interactDistance)
         {
-            // Yakınsam: oturmak istiyorum. (Uzaktan boşuna istek atmayalım diye
-            // burada da bakıyoruz, ama asıl kararı sunucu verir.)
+            // Oturmak iyimser DEĞİL: koltuk dolu olabilir, sunucunun onayını bekleriz.
             laptop.RequestSitRpc();
         }
     }
 
-    // Sunucu koltuk değerini değiştirdiğinde çalışır. oldId = önceki, newId = yeni.
+    // Sunucu koltuk değerini değiştirdiğinde çalışır.
     private void OnSeatChanged(ulong oldId, ulong newId)
     {
         if (newId == OwnerClientId)
         {
-            // Koltuk artık BENİM: hareketi durdur ve koltuğa ışınlan.
-            movement.enabled = false;   // PlayerMovement'ın Update'i artık çalışmaz
-            cc.enabled = false;         // CC açıkken ışınlama geri sıçrar (1b'deki tuzak)
+            // Koltuk artık benim: dur, ışınlan, oturma bakışına geç.
+            movement.enabled = false;
+            cc.enabled = false;   // CC açıkken ışınlama geri sıçrar
             transform.position = laptop.SeatPoint.position;
-            cam.SetLaptopFocus(true);
+            cam.SetMode(CameraMode.Seated);   // DEĞİŞTİ: SetLaptopFocus(true) yerine
         }
         else if (oldId == OwnerClientId && !movement.enabled)
         {
-            // Buraya sadece iyimser kalkmadan GEÇMEDEN koltuktan düştüysem gelirim
-            // (ileride: sunucu beni zorla kaldırırsa). Zaten kalktıysam bir şey yapma,
-            // yoksa yürürken tekrar masanın önüne ışınlanırım.
+            // İyimser kalkma olmadan koltuktan düştüysem (ileride: sunucu zorla kaldırırsa).
             StandUpLocally();
         }
     }
 
-    // Yerel olarak oyuncuyu kalkmış hale getirir (sunucudan onay beklenirken UI/kontroller için).
     private void StandUpLocally()
     {
         // Masadan oturma noktasına doğru olan yön = "geri" yönü.
         Vector3 away = laptop.SeatPoint.position - laptop.transform.position;
-        away.y = 0;   // Sadece yatay yön, yukarı/aşağı değil
+        away.y = 0;
 
-        // cc kapalıyken ışınla (1b'deki tuzak), sonra aç.
         transform.position = laptop.SeatPoint.position + away.normalized * 0.5f;
         cc.enabled = true;
         movement.enabled = true;
-        cam.SetLaptopFocus(false);   // genel bakışa geri dön
+        cam.SetMode(CameraMode.Overview);   // DEĞİŞTİ: SetLaptopFocus(false) yerine
     }
 }
