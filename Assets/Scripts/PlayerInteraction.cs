@@ -21,6 +21,12 @@ public class PlayerInteraction : NetworkBehaviour
     private CharacterController cc;
     private CameraController cam;   // Yerel kamera
 
+    private ChaosEvent repairTarget;   // Şu an tamir ettiğim kaos (yoksa null)
+
+    // HUD okusun diye. Yakındaki aktif kaos ve tamir ediyor muyum?
+    public ChaosEvent NearbyChaos { get; private set; }
+    public bool IsRepairing => repairTarget != null;
+
     // "Koltukta oturan benim mi?" Gerçeğin tek kaynağı sunucudaki değer.
     public bool IsSeated => laptop != null && laptop.SeatedClientId.Value == OwnerClientId;
 
@@ -54,23 +60,64 @@ public class PlayerInteraction : NetworkBehaviour
         if (LookingAtScreen.Value != looking)
             LookingAtScreen.Value = looking;
 
-        if (!Keyboard.current.eKey.wasPressedThisFrame) return;
+        var kb = Keyboard.current;
+        if (kb == null) return;
 
+        // ÖNCELİK 1: Oturuyorsam E sadece "kalk" demek.
         if (IsSeated)
         {
-            // Sunucu cevabı gelene kadar IsSeated hâlâ true görünür.
-            // "Zaten kalktıysam ikinci kez kalkma" kontrolü.
-            if (!movement.enabled)
+            NearbyChaos = null;
+            if (kb.eKey.wasPressedThisFrame && !movement.enabled)
             {
-                StandUpLocally();          // İyimser: önce kendi ekranımda hemen kalk
-                laptop.RequestStandRpc();  // Sonra sunucuya haber ver
+                StandUpLocally();
+                laptop.RequestStandRpc();
             }
+            return;
         }
-        else if (Vector3.Distance(transform.position, laptop.SeatPoint.position) <= interactDistance)
+
+        // ÖNCELİK 2: Yakında aktif kaos varsa E = tamir.
+        NearbyChaos = FindNearbyActiveChaos();
+        UpdateRepair(kb);
+        if (IsRepairing) return;   // Tamir ederken başka bir şey yapma
+
+        // ÖNCELİK 3: Laptopa otur.
+        if (kb.eKey.wasPressedThisFrame && NearbyChaos == null &&
+            Vector3.Distance(transform.position, laptop.SeatPoint.position) <= interactDistance)
         {
-            // Oturmak iyimser DEĞİL: koltuk dolu olabilir, sunucunun onayını bekleriz.
             laptop.RequestSitRpc();
         }
+    }
+
+    // Basılı tutma mantığı
+    private void UpdateRepair(Keyboard kb)
+    {
+        if (repairTarget != null)
+        {
+            // E'yi bıraktıysam, uzaklaştıysam ya da kaos çözüldüyse: dur.
+            // (Kaos çözülünce NearbyChaos null olur, böylece bu şart da tutar.)
+            if (!kb.eKey.isPressed || repairTarget != NearbyChaos)
+            {
+                repairTarget.StopRepairRpc();
+                repairTarget = null;
+            }
+        }
+        else if (NearbyChaos != null && kb.eKey.wasPressedThisFrame)
+        {
+            repairTarget = NearbyChaos;
+            repairTarget.StartRepairRpc();
+        }
+    }
+
+    // Menzildeki ilk aktif kaosu bul.
+    private ChaosEvent FindNearbyActiveChaos()
+    {
+        foreach (var c in ChaosEvent.All)
+        {
+            if (c.IsActive.Value &&
+                Vector3.Distance(transform.position, c.transform.position) <= c.InteractDistance)
+                return c;
+        }
+        return null;
     }
 
     // Sunucu koltuk değerini değiştirdiğinde çalışır.

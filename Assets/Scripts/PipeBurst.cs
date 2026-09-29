@@ -17,8 +17,11 @@ public class PipeBurst : ChaosEvent
         baseScale = transform.localScale;
     }
 
-    void Update()
+    // DEĞİŞTİ(Adim4.b): override → üst sınıfın Update'ini genişletiyoruz.
+    protected override void Update()
     {
+        base.Update();   // ÖNEMLİ: Tamir mantığı üst sınıfta. Bunu unutursan tamir ilerlemez!
+
         // GÖRSEL: Her bilgisayar kendisi hesaplar. Ağdan sadece IsActive gelir.
         if (IsActive.Value)
         {
@@ -31,12 +34,10 @@ public class PipeBurst : ChaosEvent
             transform.localScale = baseScale;
         }
 
-        // DEBUG: 1 = patlat, 2 = onar. 4b'de gerçek onarım gelince 2 silinecek,
-        // 4c'de zamanlayıcı gelince 1 silinecek.
+        // DEBUG: 1 = patlat. (2 = onar tuşu kalktı, artık E ile onarıyoruz.)
+        // 4c'de zamanlayıcı gelince bu da silinecek.
         if (!IsServer) return;
         var kb = Keyboard.current;
-        if (kb == null) return;
-        if (kb.digit1Key.wasPressedThisFrame) Trigger();
-        if (kb.digit2Key.wasPressedThisFrame) Resolve();
+        if (kb != null && kb.digit1Key.wasPressedThisFrame) Trigger();
     }
 }
