@@ -77,7 +77,7 @@ public class NetworkTestButtons : MonoBehaviour
 
     async void StartClientRelay()
     {
-        // YENİ: Biçim kontrolü. Açıkça yanlış bir kodu Relay'e hiç göndermiyoruz.
+        // Biçim kontrolü. Açıkça yanlış bir kodu Relay'e hiç göndermiyoruz.
         // Asıl kontrolü yine Relay yapar; bu sadece internete çıkmadan hızlı uyarı.
         // Trim(): Kopyala-yapıştırda gelen boşlukları temizler.
         string code = joinCodeInput.Trim();
@@ -95,7 +95,7 @@ public class NetworkTestButtons : MonoBehaviour
             await SignIn();
 
             // Host'un odası yerine, verilen kodla var olan odaya katıl.
-            // YENİ: joinCodeInput.Trim() yerine yukarıda temizlediğimiz "code" kullanılıyor.
+            // joinCodeInput.Trim() yerine yukarıda temizlediğimiz "code" kullanılıyor.
             var allocation = await RelayService.Instance.JoinAllocationAsync(code);
 
             // Host'takiyle aynı: Taşıyıcıyı Relay'e yönlendir, sonra başlat.
@@ -117,7 +117,7 @@ public class NetworkTestButtons : MonoBehaviour
         var nm = NetworkManager.Singleton;
         if (nm == null) return;   // Sahne yüklenirken NetworkManager henüz yoksa çökme
 
-        GUILayout.BeginArea(new Rect(10, 10, 300, 250));
+        GUILayout.BeginArea(new Rect(10, 10, 600, 350));   // Daha geniş ve uzun: yeni debug satırları sığsın
 
         if (!nm.IsClient && !nm.IsServer)
         {
@@ -155,10 +155,15 @@ public class NetworkTestButtons : MonoBehaviour
                 var role = player.GetComponent<PlayerRole>().CurrentRole.Value;
                 GUILayout.Label("Rolun: " + (role == Role.Mulakatci ? "MULAKATCI" : "Ev arkadasi"));
             }
+            // Şüphe değeri, aşama ve aktif kaos sayısı (herkes görür, test için)
             if (SuspicionMeter.Instance != null && SuspicionMeter.Instance.IsSpawned)
                 GUILayout.Label("Suphe (debug): " + SuspicionMeter.Instance.Suspicion.Value.ToString("0.0")
                     + " | Asama: " + SuspicionMeter.Instance.Stage.Value
                     + " | Aktif kaos: " + ChaosEvent.ActiveCount());
+            // Sadece host. Bir sonraki kaosa kalan süre (yönetmen sadece sunucuda çalışıyor)
+            var director = FindFirstObjectByType<ChaosDirector>();
+            if (nm.IsHost && director != null)
+                GUILayout.Label("Sonraki kaos (debug): " + director.NextChaosIn.ToString("0") + " sn");
 
         }
 

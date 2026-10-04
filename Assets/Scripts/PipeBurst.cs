@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
+
 
 // Boru patlaması. ChaosEvent'in tüm ağ davranışını miras alır,
 // sadece kendine özgü görseli ekler.
@@ -34,10 +34,5 @@ public class PipeBurst : ChaosEvent
             transform.localScale = baseScale;
         }
 
-        // DEBUG: 1 = patlat. (2 = onar tuşu kalktı, artık E ile onarıyoruz.)
-        // 4c'de zamanlayıcı gelince bu da silinecek.
-        if (!IsServer) return;
-        var kb = Keyboard.current;
-        if (kb != null && kb.digit1Key.wasPressedThisFrame) Trigger();
     }
 }
