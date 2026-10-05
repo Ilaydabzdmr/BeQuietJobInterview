@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: "Yanl\u0131\u015F adres kargo"
   arrivalLine: "Kargo: Ay\u015Fe Han\u0131m burada m\u0131 oturuyor?"
   actionPrompt: "yanl\u0131\u015F adres de"
-  weight: 50
+  weight: 15
   ringIntervalStart: 6
   ringIntervalMin: 2
   ringSuspicion: 3

@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: "Zil tak\u0131lmas\u0131"
   arrivalLine: "Zil tak\u0131ld\u0131! D\u0130NG D\u0130NG D\u0130NG D\u0130NG..."
   actionPrompt: zili sustur
-  weight: 0
+  weight: 45
   ringIntervalStart: 6
   ringIntervalMin: 2
   ringSuspicion: 3

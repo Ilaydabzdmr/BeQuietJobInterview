@@ -52,6 +52,9 @@ public abstract class ChaosEvent : NetworkBehaviour
     // HashSet: aynı ID iki kez eklenemez (bir oyuncu iki kez sayılmasın).
     private readonly HashSet<ulong> repairers = new HashSet<ulong>();
 
+    // Alt sınıflar "şu an kaç kişi tamir ediyor?" bilsin. (Sadece sunucuda dolu.)
+    protected int RepairerCount => repairers.Count;
+
     // Her alt sınıf kendi adını söylemek ZORUNDA (abstract özellik).
     public abstract string DisplayName { get; }
 

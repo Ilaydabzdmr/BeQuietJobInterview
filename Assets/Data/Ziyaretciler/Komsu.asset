@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: "Kom\u015Fu"
   arrivalLine: "Kom\u015Fu: Komsu bir dakika, sana anlatacaklar\u0131m var!"
   actionPrompt: "laf\u0131 k\u0131sa kes"
-  weight: 0
+  weight: 30
   ringIntervalStart: 6
   ringIntervalMin: 2
   ringSuspicion: 3
