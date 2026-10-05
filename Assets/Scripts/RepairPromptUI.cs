@@ -22,7 +22,7 @@ public class RepairPromptUI : MonoBehaviour
 
         label.text = interaction.IsRepairing
             ? "Onariliyor..."
-            : "E basili tut: " + chaos.DisplayName;
+            : "E basili tut: " + chaos.ActionPrompt;   // Ziyaretçiye göre: "imza at", "durumu açıkla"...
 
         // İlerleme sunucudan gelir: iki kişi tamir ediyorsa ikisi de aynı barı görür.
         progressFill.fillAmount = chaos.RepairProgress.Value;

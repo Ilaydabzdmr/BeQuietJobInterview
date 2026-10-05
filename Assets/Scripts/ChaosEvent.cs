@@ -22,11 +22,31 @@ public abstract class ChaosEvent : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
 
+    //(PipeBurst'ten taşındı): Ne kadar kötüleşti? 0 = yeni başladı, 1 = en kötü.
+    public NetworkVariable<float> Severity = new NetworkVariable<float>(
+        0f,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+
     [Header("Tamir")]
     [SerializeField] private float repairDuration = 3f;      // YENİ: Tek kişiyle kaç saniye
     [SerializeField] private float interactDistance = 1.5f;  // YENİ: Ne kadar yakından
 
+    [Header("Kötüleşme")]   //(PipeBurst'ten taşındı)
+    [SerializeField] private float timeToMaxSeverity = 40f;   // 0 = hiç kötüleşmez
+    [SerializeField] private float maxMultiplier = 2f;        // En kötü halde şüphe çarpanı
+
     public float InteractDistance => interactDistance;
+
+    //Alanları doğrudan değil, bu özellikler üzerinden kullanıyoruz.
+    // Varsayılan olarak Inspector'daki değeri döner, ama alt sınıf override edip
+    // başka bir değer verebilir (kapı: o anki ziyaretçinin değeri).
+    protected virtual float RepairDuration => repairDuration;
+    protected virtual float TimeToMaxSeverity => timeToMaxSeverity;
+    protected virtual float MaxMultiplier => maxMultiplier;
+
+    //Tamir ipucunda yazacak eylem. Varsayılan: kaosun adı.
+    public virtual string ActionPrompt => DisplayName;
 
     // Şu an tamir eden oyuncuların ID'leri. SADECE SUNUCUDA dolu.
     // HashSet: aynı ID iki kez eklenemez (bir oyuncu iki kez sayılmasın).
@@ -34,6 +54,14 @@ public abstract class ChaosEvent : NetworkBehaviour
 
     // Her alt sınıf kendi adını söylemek ZORUNDA (abstract özellik).
     public abstract string DisplayName { get; }
+
+    //Artık varsayılan olarak Severity'ye göre hesaplanıyor (her kaos için).
+    public virtual float PressureMultiplier => Mathf.Lerp(1f, maxMultiplier, Severity.Value);
+
+    // Alt sınıfların "başladım / çözüldüm" anlarına özel iş eklemesi için kancalar.
+    // Boş gövdeli virtual metot: alt sınıf isterse override eder, istemezse hiçbir şey olmaz.
+    protected virtual void OnTriggered() { }
+    protected virtual void OnResolved() { }
 
     public override void OnNetworkSpawn()
     {
@@ -50,7 +78,9 @@ public abstract class ChaosEvent : NetworkBehaviour
     {
         if (!IsServer || IsActive.Value) return;
         RepairProgress.Value = 0f;   // Her patlama sıfırdan başlar
+        Severity.Value = 0f;   
         IsActive.Value = true;
+        OnTriggered();   // Alt sınıfa haber ver
         Debug.Log($"[Kaos] {DisplayName} basladi");
     }
 
@@ -59,8 +89,10 @@ public abstract class ChaosEvent : NetworkBehaviour
     {
         if (!IsServer || !IsActive.Value) return;
         IsActive.Value = false;
-        RepairProgress.Value = 0f;  
-        repairers.Clear();           //Tamirciler dağılsın
+        RepairProgress.Value = 0f;
+        Severity.Value = 0f;   
+        repairers.Clear();//Tamirciler dağılsın
+        OnResolved();    // Alt sınıfa haber ver
         Debug.Log($"[Kaos] {DisplayName} cozuldu");
     }
 
@@ -82,20 +114,29 @@ public abstract class ChaosEvent : NetworkBehaviour
         if (repairers.Count == 0) RepairProgress.Value = 0f;   // Kimse tutmuyorsa sıfırla
     }
 
-    // virtual → alt sınıflar bunu genişletebilir (override).
-    // protected → sadece bu sınıf ve alt sınıfları görebilir.
+    // DEĞİŞTİ: Tamir mantığı kendi metoduna alındı (Update okunaklı kalsın diye).
     protected virtual void Update()
     {
-        if (!IsServer || !IsActive.Value || repairers.Count == 0) return;
+        if (!IsServer || !IsActive.Value) return;
+
+        // Açık kaldıkça kötüleş.
+        if (timeToMaxSeverity > 0f)
+            Severity.Value = Mathf.Min(1f, Severity.Value + Time.deltaTime / timeToMaxSeverity);
+
+        UpdateRepair();
+    }
+    // Tamir mantığı kendi metodunda (Update okunaklı kalsın diye).
+    private void UpdateRepair()
+    {
+        if (repairers.Count == 0) return;
 
         repairers.RemoveWhere(id => !IsInRange(id));
         if (repairers.Count == 0)
         {
-            RepairProgress.Value = 0f;   //Herkes uzaklaştıysa da sıfırla
+            RepairProgress.Value = 0f;
             return;
         }
 
-        // Her tamirci ilerlemeye katkı verir: 2 kişi = 2 kat hız.
         RepairProgress.Value += Time.deltaTime / repairDuration * repairers.Count;
 
         if (RepairProgress.Value >= 1f)
@@ -120,5 +161,15 @@ public abstract class ChaosEvent : NetworkBehaviour
         foreach (var e in All)
             if (e.IsActive.Value) count++;
         return count;
+    }
+
+    // Aktif kaosların çarpanlarının toplamı.
+    // Hepsi 1 ise ActiveCount() ile aynı sonucu verir (eski formül bozulmaz).
+    public static float TotalPressure()
+    {
+        float total = 0f;
+        foreach (var e in All)
+            if (e.IsActive.Value) total += e.PressureMultiplier;
+        return total;
     }
 }

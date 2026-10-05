@@ -9,7 +9,15 @@ public class InterviewReactionUI : MonoBehaviour
     [SerializeField] private float subtitleDuration = 3f;
 
     private SuspicionStage lastStage = SuspicionStage.Sakin;   // En son gördüğümüz aşama
-    private float subtitleTimer;                              // Altyazının kalan süresi
+    private float subtitleTimer; // Altyazının kalan süresi
+
+    // Başka scriptler (kapı ziyaretçileri) altyazı gösterebilsin diye.
+    public static InterviewReactionUI Instance { get; private set; }
+
+    void Awake()
+    {
+        Instance = this;
+    }
 
     void Start()
     {
@@ -58,7 +66,7 @@ public class InterviewReactionUI : MonoBehaviour
         }
     }
 
-    private void ShowSubtitle(string line)
+    public void ShowSubtitle(string line)
     {
         subtitleText.text = line;
         subtitleTimer = subtitleDuration;

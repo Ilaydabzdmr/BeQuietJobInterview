@@ -34,7 +34,7 @@ public class SuspicionInputs : NetworkBehaviour
         // Kaos kuralı ÜSTÜNE eklenir (farklı kategori).
         // Her aktif kaos 0.5 × aktif kaos sayısı → 1:0.5, 2:2.0, 3:4.5
         int active = ChaosEvent.ActiveCount();
-        rate += chaosPerSecond * active * active;
+        rate += chaosPerSecond * active * ChaosEvent.TotalPressure();   // Kötüleşen kaos daha çok bastırır
 
         // rate saniye başına. deltaTime ile çarparak bu karenin payını buluruz.
         // (1b'deki hareket hızıyla aynı mantık: FPS'ten bağımsız.)
