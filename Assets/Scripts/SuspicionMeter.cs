@@ -14,6 +14,13 @@ public class SuspicionMeter : NetworkBehaviour
 
     public const float Max = 100f;
 
+    [Header("İbre cezası")]  
+    [SerializeField] private float needleHitSuspicion = 5f;   // Kenara çarpınca ani şüphe
+    [SerializeField] private float needleHitCooldown = 1f;    // En fazla saniyede bir ceza
+
+    private float lastNeedleHitTime = -999f;   // YENİ: Son cezanın zamanı (sadece sunucu)
+
+
     // Şüphe değeri (0-100). Sunucu yazar, herkes okur.
     public NetworkVariable<float> Suspicion = new NetworkVariable<float>(
         0f,
@@ -71,6 +78,27 @@ public class SuspicionMeter : NetworkBehaviour
         if (!IsServer) return;
         Suspicion.Value = 0f;
         Stage.Value = SuspicionStage.Sakin;
+    }
+
+    // Mülakatçının bilgisayarı "ibre kenara çarptı" der. Sunucu doğrular ve cezalandırır.
+    [Rpc(SendTo.Server)]
+    public void ReportNeedleHitRpc(RpcParams rpcParams = default)
+    {
+        ulong sender = rpcParams.Receive.SenderClientId;
+
+        // Kontrol 1: Gönderen gerçekten var ve gerçekten mülakatçı mı?
+        if (!NetworkManager.ConnectedClients.TryGetValue(sender, out var client) ||
+            client.PlayerObject == null)
+            return;
+        if (client.PlayerObject.GetComponent<PlayerRole>().CurrentRole.Value != Role.Mulakatci)
+            return;
+
+        // Kontrol 2: Çok sık mı? (Hata ya da hile ile spam'e karşı)
+        if (Time.time - lastNeedleHitTime < needleHitCooldown) return;
+        lastNeedleHitTime = Time.time;
+
+        AddSuspicion(needleHitSuspicion);
+        Debug.Log($"[Ibre] Kenara carpti! +{needleHitSuspicion}");
     }
 
     // DEBUG: Test tuşları. Görev 3c'de gerçek girdiler gelince silinecek.
