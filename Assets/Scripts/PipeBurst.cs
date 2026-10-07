@@ -12,6 +12,7 @@ public class PipeBurst : ChaosEvent
     [Header("Su birikintisi")]
     [SerializeField] private NetworkObject puddlePrefab;
     [SerializeField] private Transform puddlePoint;
+    [SerializeField] private float burstNeedlePush = 1.5f;   // Patlama anında ibreye sert darbe
 
     private Vector3 baseScale;
     private Puddle puddle;
@@ -26,6 +27,8 @@ public class PipeBurst : ChaosEvent
         NetworkObject obj = Instantiate(puddlePrefab, puddlePoint.position, Quaternion.identity);
         obj.Spawn();
         puddle = obj.GetComponent<Puddle>();
+
+        BurstRpc(burstNeedlePush);   // AN: "Boru şu an patladı!"
     }
 
     protected override void OnResolved()
@@ -52,5 +55,13 @@ public class PipeBurst : ChaosEvent
         {
             transform.localScale = baseScale;
         }
+    }
+
+    // AN: Patlama. Faz 4'te patlama sesi de burada çalacak.
+    [Rpc(SendTo.ClientsAndHost)]
+    private void BurstRpc(float needlePush)
+    {
+        if (NeedleMinigame.Instance != null)
+            NeedleMinigame.Instance.Push(needlePush, transform.position);
     }
 }

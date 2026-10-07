@@ -10,6 +10,7 @@ public class DoorVisitor : ChaosEvent
     [Header("Görsel")]
     [SerializeField] private float popScale = 1.6f;
     [SerializeField] private float popDuration = 0.25f;
+    [SerializeField] private float needlePushPerSuspicion = 0.3f;   // Her şüphe puanı için ibre itme gücü
 
     // Şu anki ziyaretçinin listedeki sırası. Sunucu seçer, herkes okur.
     // Herkeste aynı liste olduğu için bu sayı yeterli.
@@ -55,7 +56,7 @@ public class DoorVisitor : ChaosEvent
             if (ringTimer <= 0f)
             {
                 SuspicionMeter.Instance.AddSuspicion(Current.ringSuspicion);
-                RingRpc();
+                RingRpc(Current.ringSuspicion * needlePushPerSuspicion);   // Polis sert, takılan zil hafif
                 ringTimer = Mathf.Lerp(Current.ringIntervalStart, Current.ringIntervalMin, Severity.Value);
             }
         }
@@ -99,8 +100,12 @@ public class DoorVisitor : ChaosEvent
     }
 
     [Rpc(SendTo.ClientsAndHost)]
-    private void RingRpc()
+    private void RingRpc(float needlePush)
     {
         popTimer = popDuration;
+
+        // Aynı "an"ı ibre için de kullan. Sadece oturan mülakatçıda etki eder.
+        if (NeedleMinigame.Instance != null)
+            NeedleMinigame.Instance.Push(needlePush, transform.position);
     }
 }

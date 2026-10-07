@@ -10,6 +10,7 @@ public class NeighborMusic : ChaosEvent
     [Header("Duvara vurma")]
     [SerializeField] private float bangInterval = 0.5f;   // Kaç saniyede bir "GÜM"
     [SerializeField] private float bangSuspicion = 1f;    // Her vuruşta kişi başı ani şüphe
+    [SerializeField] private float needlePushPerBang = 0.3f;   // Her vuruşta kişi başı ibre itmesi
 
     [Header("Görsel")]
     [SerializeField] private float bpm = 120f;            // Müziğin temposu
@@ -45,7 +46,7 @@ public class NeighborMusic : ChaosEvent
             {
                 // Kaç kişi vuruyorsa o kadar gürültü
                 SuspicionMeter.Instance.AddSuspicion(bangSuspicion * RepairerCount);
-                BangRpc();
+                BangRpc(needlePushPerBang * RepairerCount);   // İki kişi vurursa iki kat itme
                 bangTimer = bangInterval;
             }
         }
@@ -71,9 +72,12 @@ public class NeighborMusic : ChaosEvent
     }
 
     [Rpc(SendTo.ClientsAndHost)]
-    private void BangRpc()
+    private void BangRpc(float needlePush)
     {
-        bangVisualTimer = 0.1f;   // Faz 4'te: "GÜM" sesi
+        bangVisualTimer = 0.1f;
+
+        if (NeedleMinigame.Instance != null)
+            NeedleMinigame.Instance.Push(needlePush, transform.position);
     }
 
     [Rpc(SendTo.ClientsAndHost)]

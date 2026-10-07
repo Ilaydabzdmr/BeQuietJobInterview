@@ -3,33 +3,40 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-// Kompozisyon ibresi. Mülakatçının KENDİ bilgisayarında simüle edilir (anlık tepki için).
-// Sadece "kenara çarptım" sonucu sunucuya gider.
+// Kompozisyon ibresi. Mülakatçının KENDİ bilgisayarında simüle edilir.
 public class NeedleMinigame : MonoBehaviour
 {
+    // YENİ: Kaoslar ibreyi itebilsin diye
+    public static NeedleMinigame Instance { get; private set; }
+
     [Header("Arayüz")]
-    [SerializeField] private GameObject root;        // IbreAlani (göster/gizle)
-    [SerializeField] private RectTransform track;    // IbreAlani (genişliği için)
-    [SerializeField] private RectTransform needle;   // Ibre (hareket eden)
-    [SerializeField] private Image needleImage;      // Ibre (renk için)
+    [SerializeField] private GameObject root;
+    [SerializeField] private RectTransform track;
+    [SerializeField] private RectTransform needle;
+    [SerializeField] private Image needleImage;
 
     [Header("Fizik")]
-    [SerializeField] private float driftStrength = 1.2f;   // Kendi kendine kayma gücü
-    [SerializeField] private float driftSpeed = 0.5f;      // Kaymanın yön değiştirme hızı
-    [SerializeField] private float playerForce = 3f;       // A/D'nin itme gücü
-    [SerializeField] private float damping = 2f;           // Sürtünme (büyük = daha çabuk durur)
+    [SerializeField] private float driftStrength = 1.2f;
+    [SerializeField] private float driftSpeed = 0.5f;
+    [SerializeField] private float playerForce = 3f;
+    [SerializeField] private float damping = 2f;
+
+    [Header("Kaos etkisi")]   // YENİ
+    [SerializeField] private float pressureDriftFactor = 0.5f;   // Aktif kaos baskısı kaymayı ne kadar güçlendirir
 
     [Header("Kenar")]
-    [SerializeField] private float bounceBackTo = 0.6f;    // Çarpınca nereye geri seksin
-    [SerializeField] private float flashDuration = 0.3f;   // Kırmızı yanıp sönme süresi
+    [SerializeField] private float bounceBackTo = 0.6f;
+    [SerializeField] private float flashDuration = 0.3f;
 
-    private float position;    // -1 = sol uç, 0 = orta, +1 = sağ uç
-    private float velocity;    // Saniyede ne kadar hareket ediyor
-    private float noiseSeed;   // Her oyunda farklı bir gürültü deseni için
+    private float position;
+    private float velocity;
+    private float noiseSeed;
     private float flashTimer;
+    private LaptopSeat laptop;   // YENİ: Sesin hangi taraftan geldiğini hesaplamak için
 
     void Awake()
     {
+        Instance = this;   // YENİ
         noiseSeed = Random.Range(0f, 100f);
     }
 
@@ -40,7 +47,6 @@ public class NeedleMinigame : MonoBehaviour
 
         if (!active)
         {
-            // Oturmuyorsa ibre ortada bekler
             position = 0f;
             velocity = 0f;
             return;
@@ -48,11 +54,12 @@ public class NeedleMinigame : MonoBehaviour
 
         float dt = Time.deltaTime;
 
-        // 1) KENDİLİĞİNDEN KAYMA: Perlin gürültüsü 0-1 arası yumuşak değer verir.
-        //    -1 ile 1 arasına çeviriyoruz → sağa ya da sola yavaşça değişen bir itme.
-        float drift = (Mathf.PerlinNoise(noiseSeed, Time.time * driftSpeed) * 2f - 1f) * driftStrength;
+        // YENİ: Aktif kaoslar kaymayı güçlendirir. TotalPressure her bilgisayarda hesaplanabilir
+        // (IsActive ve Severity zaten senkronize). Hiç kaos yoksa çarpan 1.
+        float chaosBoost = 1f + ChaosEvent.TotalPressure() * pressureDriftFactor;
+        float drift = (Mathf.PerlinNoise(noiseSeed, Time.time * driftSpeed) * 2f - 1f)
+                      * driftStrength * chaosBoost;
 
-        // 2) OYUNCUNUN İTMESİ
         float input = 0f;
         var kb = Keyboard.current;
         if (kb != null)
@@ -61,23 +68,18 @@ public class NeedleMinigame : MonoBehaviour
             if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) input += 1f;
         }
 
-        // 3) FİZİK: kuvvet → hız → konum. Sürtünme hızı yavaşça azaltır.
         velocity += (drift + input * playerForce) * dt;
         velocity -= velocity * damping * dt;
         position += velocity * dt;
 
-        // 4) KENARA ÇARPTI MI?
         if (Mathf.Abs(position) >= 1f)
         {
-            // Sonucu sunucuya bildir. Cezaya sunucu karar verir.
             SuspicionMeter.Instance.ReportNeedleHitRpc();
-
-            position = Mathf.Sign(position) * bounceBackTo;   // Sign: işaretini al (+1 ya da -1)
+            position = Mathf.Sign(position) * bounceBackTo;
             velocity = 0f;
             flashTimer = flashDuration;
         }
 
-        // 5) GÖRSEL: -1..1 konumu piksele çevir
         float halfWidth = track.rect.width / 2f;
         needle.anchoredPosition = new Vector2(position * halfWidth, needle.anchoredPosition.y);
 
@@ -85,13 +87,29 @@ public class NeedleMinigame : MonoBehaviour
         needleImage.color = flashTimer > 0f ? Color.red : Color.white;
     }
 
-    // Bu bilgisayardaki oyuncu mülakatçı mı ve laptopta mı oturuyor?
+    // YENİ: Bir kaos "anı" ibreyi iter. strength = itme gücü, sourceWorldPos = sesin kaynağı.
+    // Bu metot her bilgisayarda çağrılır ama sadece oturan mülakatçıda bir etkisi olur.
+    public void Push(float strength, Vector3 sourceWorldPos)
+    {
+        if (!root.activeSelf) return;   // İbre çalışmıyorsa (mülakatçı değil ya da oturmuyor) yok say
+
+        if (laptop == null) laptop = FindFirstObjectByType<LaptopSeat>();
+
+        // InverseTransformPoint: Dünyadaki bir noktayı laptopun KENDİ bakış açısına çevirir.
+        // Sonuç x > 0 ise ses mülakatçının sağında, x < 0 ise solunda.
+        float side = 1f;
+        if (laptop != null)
+            side = Mathf.Sign(laptop.transform.InverseTransformPoint(sourceWorldPos).x);
+
+        velocity += side * strength;   // Ani darbe: hız bir anda değişir
+    }
+
     private bool IsLocalInterviewerSeated()
     {
         var nm = NetworkManager.Singleton;
         var meter = SuspicionMeter.Instance;
         if (nm == null || meter == null || !meter.IsSpawned) return false;
-        if (meter.Stage.Value == SuspicionStage.Bitti) return false;   // Görüşme bitti
+        if (meter.Stage.Value == SuspicionStage.Bitti) return false;
 
         var player = nm.SpawnManager.GetLocalPlayerObject();
         if (player == null) return false;
