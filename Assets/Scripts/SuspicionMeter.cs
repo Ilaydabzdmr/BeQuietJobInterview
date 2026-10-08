@@ -52,6 +52,9 @@ public class SuspicionMeter : NetworkBehaviour
             return;
         }
 
+        // Görüşme dışında şüphe hiç değişmez. Tek kapı sayesinde tek satır yeterli.
+        if (InterviewSession.Instance == null || !InterviewSession.Instance.IsInCall) return;
+
         // Görüşme bittiyse bar kilitli. Artık hiçbir şey değiştiremez.
         if (Stage.Value == SuspicionStage.Bitti) return;
 
@@ -111,6 +114,5 @@ public class SuspicionMeter : NetworkBehaviour
 
         if (kb.kKey.wasPressedThisFrame) AddSuspicion(10f);    // K: +10
         if (kb.lKey.wasPressedThisFrame) AddSuspicion(-10f);   // L: -10
-        if (kb.rKey.wasPressedThisFrame) ResetMeter();         // R: sıfırla
     }
 }

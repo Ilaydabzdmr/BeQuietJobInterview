@@ -6,7 +6,7 @@ using UnityEngine.UI;
 // Kompozisyon ibresi. Mülakatçının KENDİ bilgisayarında simüle edilir.
 public class NeedleMinigame : MonoBehaviour
 {
-    // YENİ: Kaoslar ibreyi itebilsin diye
+    //  Kaoslar ibreyi itebilsin diye
     public static NeedleMinigame Instance { get; private set; }
 
     [Header("Arayüz")]
@@ -32,11 +32,11 @@ public class NeedleMinigame : MonoBehaviour
     private float velocity;
     private float noiseSeed;
     private float flashTimer;
-    private LaptopSeat laptop;   // YENİ: Sesin hangi taraftan geldiğini hesaplamak için
+    private LaptopSeat laptop;   // Sesin hangi taraftan geldiğini hesaplamak için
 
     void Awake()
     {
-        Instance = this;   // YENİ
+        Instance = this;  
         noiseSeed = Random.Range(0f, 100f);
     }
 
@@ -54,7 +54,7 @@ public class NeedleMinigame : MonoBehaviour
 
         float dt = Time.deltaTime;
 
-        // YENİ: Aktif kaoslar kaymayı güçlendirir. TotalPressure her bilgisayarda hesaplanabilir
+        //  Aktif kaoslar kaymayı güçlendirir. TotalPressure her bilgisayarda hesaplanabilir
         // (IsActive ve Severity zaten senkronize). Hiç kaos yoksa çarpan 1.
         float chaosBoost = 1f + ChaosEvent.TotalPressure() * pressureDriftFactor;
         float drift = (Mathf.PerlinNoise(noiseSeed, Time.time * driftSpeed) * 2f - 1f)
@@ -87,7 +87,7 @@ public class NeedleMinigame : MonoBehaviour
         needleImage.color = flashTimer > 0f ? Color.red : Color.white;
     }
 
-    // YENİ: Bir kaos "anı" ibreyi iter. strength = itme gücü, sourceWorldPos = sesin kaynağı.
+    //  Bir kaos "anı" ibreyi iter. strength = itme gücü, sourceWorldPos = sesin kaynağı.
     // Bu metot her bilgisayarda çağrılır ama sadece oturan mülakatçıda bir etkisi olur.
     public void Push(float strength, Vector3 sourceWorldPos)
     {
@@ -110,6 +110,8 @@ public class NeedleMinigame : MonoBehaviour
         var meter = SuspicionMeter.Instance;
         if (nm == null || meter == null || !meter.IsSpawned) return false;
         if (meter.Stage.Value == SuspicionStage.Bitti) return false;
+
+        if (InterviewSession.Instance == null || !InterviewSession.Instance.IsInCall) return false;   // Sadece görüşmede
 
         var player = nm.SpawnManager.GetLocalPlayerObject();
         if (player == null) return false;

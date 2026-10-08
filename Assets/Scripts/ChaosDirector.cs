@@ -32,19 +32,27 @@ public class ChaosDirector : NetworkBehaviour
     // IEnumerator: Coroutine'lerin dönüş tipi. "Duraklayabilen metot" demek.
     private IEnumerator ChaosLoop()
     {
-        nextChaosTime = Time.time + firstDelay;
-        yield return new WaitForSeconds(firstDelay);   // Burada bekle, oyun donmaz
-
-        while (true)   // Sonsuz döngü: Coroutine'de güvenli, çünkü her turda bekliyor
+        while (true)   // Her görüşme için bir tur
         {
-            // Görüşme bittiyse yeni kaos çıkarma (R ile sıfırlanınca devam eder).
-            var meter = SuspicionMeter.Instance;
-            if (meter != null && meter.Stage.Value != SuspicionStage.Bitti)
+            // Görüşme başlayana kadar bekle.
+            // WaitUntil: içindeki koşul true olana kadar her karede kontrol eder.
+            yield return new WaitUntil(() =>
+                InterviewSession.Instance != null && InterviewSession.Instance.IsInCall);
+
+            // Görüşme başladı: ilk kaostan önce kısa bir nefes
+            nextChaosTime = Time.time + firstDelay;
+            yield return new WaitForSeconds(firstDelay);
+
+            // Görüşme sürdükçe kaos üret
+            while (InterviewSession.Instance.IsInCall)
+            {
                 TriggerRandomChaos();
 
-            float wait = Random.Range(minInterval, maxInterval);
-            nextChaosTime = Time.time + wait;
-            yield return new WaitForSeconds(wait);
+                float wait = Random.Range(minInterval, maxInterval);
+                nextChaosTime = Time.time + wait;
+                yield return new WaitForSeconds(wait);
+            }
+            // Görüşme bitti → en baştaki WaitUntil'e dön, bir sonraki görüşmeyi bekle
         }
     }
 
